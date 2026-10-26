@@ -35,5 +35,3 @@ repository secrets, and `.github/workflows/price-check.yml` runs twice a day and
 commits `prices.db` back. Note that runners use US IP addresses, so some shops
 may show other currencies or block the request; running from home sees the
 prices you see.
-
-test
