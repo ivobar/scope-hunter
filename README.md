@@ -17,11 +17,20 @@ lists candidate price elements; add `selector = "..."` to that shop in shops.tom
 ## Notifications (environment variables; enable any combination)
 | Channel  | Variables |
 |----------|-----------|
+| Discord  | `DISCORD_WEBHOOK_URL` (Server Settings → Integrations → Webhooks → New Webhook → Copy URL) |
 | Telegram | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` |
 | ntfy     | `NTFY_TOPIC` (optional `NTFY_SERVER`, default https://ntfy.sh) |
 | Email    | `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_TO`, optional `EMAIL_FROM` |
 
-Test with `python price_tracker.py --test-notify`.
+Test with `python price_tracker.py --test-notify`. Add `--summary` to any run to
+also send a price table for every shop (the GitHub Actions morning run does this).
+
+## Testing
+    pip install -r requirements-dev.txt
+    pytest                                         # unit tests on saved sample pages
+    python price_tracker.py --dry-run --summary    # live check against the real shops
+
+The unit tests also run on every push (`.github/workflows/tests.yml`).
 
 ## Scheduling
 **Home machine (cron)**, twice a day:
@@ -30,8 +39,11 @@ Test with `python price_tracker.py --test-notify`.
 
 Put the notification variables in the crontab or a wrapper script.
 
-**GitHub Actions**: push this folder to a private repo, add the variables as
-repository secrets, and `.github/workflows/price-check.yml` runs twice a day and
-commits `prices.db` back. Note that runners use US IP addresses, so some shops
+**GitHub Actions**: push this folder to a repo, add the variables as repository
+secrets (Settings → Secrets and variables → Actions, or
+`gh secret set DISCORD_WEBHOOK_URL`), and `.github/workflows/price-check.yml` runs
+at 06:00 UTC (alerts + summary) and 18:00 UTC (alerts only) and commits
+`prices.db` back. Use Actions → RASA 8 price check → Run workflow to start a run
+by hand, with optional dry-run and summary switches. Note that runners use US IP addresses, so some shops
 may show other currencies or block the request; running from home sees the
 prices you see.

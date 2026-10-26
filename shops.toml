@@ -30,10 +30,12 @@ name = "Skypoint"
 url = "https://www.skypoint.it/en/celestron-rowe-ackermann-schmidt-astrograph-8-f-2.html"
 currency = "EUR"
 
-[[shop]]
-name = "Astroshop.eu"
-url = "https://www.astroshop.eu/telescopes/celestron-telescope-astrograph-s-203-400-rasa-8-ota/p,60246"
-currency = "EUR"
+# Disabled: behind a Cloudflare bot challenge (HTTP 403 "Just a moment..."), so
+# plain requests can't read it. Check this one by hand.
+# [[shop]]
+# name = "Astroshop.eu"
+# url = "https://www.astroshop.eu/telescopes/celestron-telescope-astrograph-s-203-400-rasa-8-ota/p,60246"
+# currency = "EUR"
 
 [[shop]]
 name = "Teleskop-Express"

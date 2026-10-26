@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python price_tracker.py --dry-run --summary)",
+      "Bash(curl -s -o /tmp/claude-1000/-home-ivaka-projects-scope-hunter/91da049c-fc0c-4487-b55c-c33dde4bb894/scratchpad/astro.html -D - -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/129.0 Safari/537.36\" \"https://www.astroshop.eu/telescopes/celestron-telescope-astrograph-s-203-400-rasa-8-ota/p,60246\")",
+      "Bash(.venv/bin/python price_tracker.py --debug rother)",
+      "Bash(.venv/bin/python -)",
+      "Bash(sed -i 's/^- CLI: `--dry-run`, `--report`, `--debug <shop name substring>`, `--test-notify`./- CLI: `--dry-run`, `--report`, `--debug <shop name substring>`, `--test-notify`,\\\\n  `--summary` \\(price table for all shops\\)./; s/^- Notifiers via env vars: Telegram, ntfy, SMTP email/- Notifiers via env vars: Discord webhook, Telegram, ntfy, SMTP email/' CLAUDE.md)",
+      "Bash(.venv/bin/pytest -q)",
+      "Bash(sqlite3 prices.db \"select count\\(*\\) from prices\")",
+      "Bash(.venv/bin/python -c \"import sqlite3;print\\(sqlite3.connect\\('prices.db'\\).execute\\('select count\\(*\\) from prices'\\).fetchone\\(\\)\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit -q -m 'Add Discord alerts, daily summary, pytest suite and CI *)",
+      "Bash(git --no-pager log --oneline -3)",
+      "Bash(git push *)"
+    ]
+  }
+}

@@ -2,11 +2,23 @@ name: RASA 8 price check
 
 on:
   schedule:
-    - cron: "0 6,18 * * *"   # twice a day (UTC)
+    - cron: "0 6 * * *"      # morning run: alerts + daily summary (UTC)
+    - cron: "0 18 * * *"     # evening run: alerts only
   workflow_dispatch:          # "Run workflow" button for manual runs
+    inputs:
+      dry_run:
+        description: "Dry run (fetch and print only; no save, no notifications)"
+        type: boolean
+        default: false
+      summary:
+        description: "Send the price table for all shops"
+        type: boolean
+        default: true
 
 permissions:
   contents: write             # to commit prices.db back
+
+concurrency: price-check      # never two runs racing on prices.db
 
 jobs:
   check:
@@ -18,8 +30,16 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: python price_tracker.py
+      - name: Check prices
+        run: |
+          args=()
+          if [ "${{ inputs.dry_run }}" = "true" ]; then args+=(--dry-run); fi
+          if [ "${{ inputs.summary }}" = "true" ] || [ "${{ github.event.schedule }}" = "0 6 * * *" ]; then
+            args+=(--summary)
+          fi
+          python price_tracker.py "${args[@]}"
         env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
@@ -28,6 +48,7 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
       - name: Save price history
+        if: ${{ inputs.dry_run != true }}
         run: |
           git config user.name "price-bot"
           git config user.email "price-bot@users.noreply.github.com"

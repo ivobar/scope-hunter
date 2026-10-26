@@ -18,6 +18,7 @@ Usage:
   python price_tracker.py --report        # table of latest + lowest prices
   python price_tracker.py --debug skyp    # inspect one shop (name substring)
   python price_tracker.py --test-notify   # check your notification setup
+  python price_tracker.py --summary       # normal run + price table for all shops
 
 Notification channels are enabled by environment variables (see README.md).
 Requires Python 3.11+ (uses tomllib).
@@ -337,7 +338,42 @@ def evaluate(name, url, res: Result, prev, prev_low, settings) -> list[str]:
     return msgs
 
 
+def summary_table(rows: list[tuple[str, Result, float | None]]) -> str:
+    """Price table for (shop name, result, lowest seen) rows, cheapest in EUR first."""
+    rows = sorted(rows, key=lambda r: (r[1].price_eur is None, r[1].price_eur or 0))
+    lines = [f"{'Shop':<22} {'Latest':>14} {'≈ EUR':>7} {'Lowest':>14}  Stock"]
+    for name, res, low in rows:
+        if res.price is None:
+            lines.append(f"{name:<22} FAILED: {(res.error or '?')[:60]}")
+            continue
+        stock = {True: "yes", False: "no", None: "?"}[res.in_stock]
+        eur = f"€{res.price_eur:,.0f}" if res.price_eur is not None else "—"
+        lines.append(f"{name:<22} {fmt(res.price, res.currency):>14} {eur:>7} "
+                     f"{fmt(low, res.currency):>14}  {stock}")
+    return "📋 Daily summary\n```\n" + "\n".join(lines) + "\n```"
+
+
 # --------------------------------------------------------------------------- notifications
+
+def _chunks(text: str, limit: int = 1900) -> list[str]:
+    """Split text into pieces under Discord's 2000-char limit, preferably on blank lines."""
+    out, cur = [], ""
+    for part in text.split("\n\n"):
+        while len(part) > limit:  # a single oversized block: hard split
+            if cur:
+                out.append(cur)
+                cur = ""
+            out.append(part[:limit])
+            part = part[limit:]
+        if cur and len(cur) + 2 + len(part) > limit:
+            out.append(cur)
+            cur = part
+        else:
+            cur = f"{cur}\n\n{part}" if cur else part
+    if cur:
+        out.append(cur)
+    return out
+
 
 def notify(text: str, dry_run: bool = False) -> None:
     print("\n" + "=" * 60 + "\n" + text + "\n" + "=" * 60)
@@ -354,6 +390,16 @@ def notify(text: str, dry_run: bool = False) -> None:
                           timeout=20).raise_for_status()
         except requests.RequestException as e:
             log.error("Telegram failed: %s", e)
+
+    webhook = os.getenv("DISCORD_WEBHOOK_URL")
+    if webhook:
+        try:
+            for part in _chunks(f"**{title}**\n\n{text}"):
+                requests.post(webhook, json={"content": part, "username": "RASA 8 tracker",
+                                             "flags": 4},  # 4 = no link previews
+                              timeout=20).raise_for_status()
+        except requests.RequestException as e:
+            log.error("Discord failed: %s", e)
 
     topic = os.getenv("NTFY_TOPIC")
     if topic:
@@ -384,9 +430,10 @@ def notify(text: str, dry_run: bool = False) -> None:
 
 # --------------------------------------------------------------------------- commands
 
-def run(conn, session, settings, shops, dry_run):
+def run(conn, session, settings, shops, dry_run, summary=False):
     rates = ecb_rates(session)
     alerts: list[str] = []
+    rows: list[tuple[str, Result, float | None]] = []
     for i, shop in enumerate(shops):
         if i:
             time.sleep(random.uniform(2, 5))  # be polite
@@ -409,16 +456,20 @@ def run(conn, session, settings, shops, dry_run):
 
         prev, prev_low = last_ok(conn, name), lowest(conn, name)
         alerts += evaluate(name, url, res, prev, prev_low, settings)
+        lows = [p for p in (prev_low, res.price) if p is not None]
+        rows.append((name, res, min(lows) if lows else None))
 
         if not dry_run:
             save(conn, name, url, res)
             if trailing_errors(conn, name) == 3:
                 alerts.append(f"⚠️ {name}: price lookup failed 3 runs in a row ({res.error}). "
                               f"The page may have changed; try --debug.\n{url}")
+    if not alerts:
+        log.info("\nNo alerts this run.")
+    if summary:
+        alerts.append(summary_table(rows))
     if alerts:
         notify("\n\n".join(alerts), dry_run)
-    else:
-        log.info("\nNo alerts this run.")
 
 
 def report(conn):
@@ -479,6 +530,8 @@ def main():
     ap.add_argument("--report", action="store_true", help="show latest and lowest prices")
     ap.add_argument("--debug", metavar="SHOP", help="inspect shops whose name contains SHOP")
     ap.add_argument("--test-notify", action="store_true", help="send a test notification")
+    ap.add_argument("--summary", action="store_true",
+                    help="also send a price table for all shops, even without alerts")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -500,7 +553,7 @@ def main():
     elif args.debug:
         debug(session, shops, args.debug)
     else:
-        run(conn, session, settings, shops, args.dry_run)
+        run(conn, session, settings, shops, args.dry_run, args.summary)
 
 
 if __name__ == "__main__":
