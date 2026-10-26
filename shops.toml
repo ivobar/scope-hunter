@@ -1,0 +1,62 @@
+# RASA 8 OTA price tracker configuration.
+#
+# Prices are auto-detected from each page's structured product data.
+# If a shop fails, run:  python price_tracker.py --debug "<part of name>"
+# and add a `selector = "..."` line (CSS selector for the price element).
+# `currency` is only a fallback for pages that don't state one.
+
+[settings]
+min_drop_pct = 0.5        # ignore fluctuations smaller than this
+# target_eur = 2400       # uncomment: alert when any shop reaches this (EUR, via ECB rates)
+
+# ---- EU ----------------------------------------------------------------------
+[[shop]]
+name = "Teleskopy.pl"
+url = "https://teleskopy.pl/product_info.php?products_id=6657"
+currency = "PLN"
+
+[[shop]]
+name = "Delta Optical"
+url = "https://deltaoptical.pl/en/celestron-rowe-ackerman-8-ota-optical-tube"
+currency = "PLN"
+
+[[shop]]
+name = "Astrofy"
+url = "https://astrofy.it/en/products/ce91073"
+currency = "EUR"
+
+[[shop]]
+name = "Skypoint"
+url = "https://www.skypoint.it/en/celestron-rowe-ackermann-schmidt-astrograph-8-f-2.html"
+currency = "EUR"
+
+[[shop]]
+name = "Astroshop.eu"
+url = "https://www.astroshop.eu/telescopes/celestron-telescope-astrograph-s-203-400-rasa-8-ota/p,60246"
+currency = "EUR"
+
+[[shop]]
+name = "Teleskop-Express"
+url = "https://www.teleskop-express.de/en/telescopes-4/reflektor-telescopce-with-lens-correcture-317/acf-ehd-rasa-telescopes-73/celestron-rasa-8-f-2-rowe-ackermann-schmidt-astrograph-optical-tube-10891"
+currency = "EUR"
+
+[[shop]]
+name = "Pierro Astro"
+url = "https://www.pierro-astro.com/materiel-astronomique/accessoires/accessoires-optiques/hyperstar-et-rasa/celestron-c8-rasa-rowe-ackermann-schmidt-astrograph_detail"
+currency = "EUR"
+
+# ---- UK (prices include UK VAT; importing to the EU adds customs + local VAT) --
+[[shop]]
+name = "First Light Optics"
+url = "https://www.firstlightoptics.com/telescopes-in-stock/celestron-rowe-ackermann-astrograph-rasa-8.html"
+currency = "GBP"
+
+[[shop]]
+name = "Rother Valley Optics"
+url = "https://www.rothervalleyoptics.co.uk/celestron-8-rowe-ackermann-schmidt-astrograph-rasa-ota-kit.html"
+currency = "GBP"
+
+[[shop]]
+name = "Harrison Telescopes"
+url = "https://www.harrisontelescopes.co.uk/celestron-rasa-8-ota"
+currency = "GBP"
