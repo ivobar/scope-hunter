@@ -202,11 +202,48 @@ def test_summary_table():
     ]
     text = pt.summary_table(rows)
     lines = text.splitlines()
-    assert lines[0] == "📋 Daily summary" and lines[1] == "```" and lines[-1] == "```"
+    assert lines[0] == "📋 Price summary" and lines[1] == "```" and lines[-1] == "```"
     body = lines[3:-1]
     assert body[0].startswith("Cheap") and "€2,700" in body[0] and "2,650.00 EUR" in body[0]
     assert body[1].startswith("Expensive") and body[1].endswith("yes")
     assert body[2].startswith("Broken") and "FAILED: HTTP 403 Forbidden" in body[2]
+
+
+def test_summary_table_lowest_includes_current_price():
+    text = pt.summary_table([("Shop", Result(2500.0, "EUR", True, price_eur=2500.0), 2600.0)])
+    assert "2,500.00 EUR" in text.splitlines()[3].split("€2,500")[1]
+
+
+def test_discord_summary():
+    rows = [
+        ("Teleskop-Express", Result(2449.0, "EUR", None, price_eur=2449.0), 2449.0),
+        ("Astrofy", Result(2050.0, "EUR", True, price_eur=2050.0), 2099.0),     # new low
+        ("Harrison", Result(2599.0, "GBP", False, price_eur=3101.0), 2599.0),
+        ("Skypoint", Result(error="403 Client Error: Forbidden for url: https://x"), 2099.0),
+        ("Odd", Result(error="no price found on page"), None),
+    ]
+    lines = pt.discord_summary(rows).splitlines()
+    assert lines[0] == "📋 Prices" and lines[1] == "```" and lines[-1] == "```"
+    body = lines[2:-1]
+    w = len("Teleskop-Express")  # names are padded to the longest one
+    assert body[0] == f"{'Astrofy':<{w}} €2,050 🤑 ✅"
+    assert body[1] == f"{'Teleskop-Express':<{w}} €2,449    ❔"
+    assert body[2] == f"{'Harrison':<{w}} €3,101    ❌"
+    assert body[3] == f"{'Skypoint':<{w}} ⚠️ HTTP 403"
+    assert body[4] == f"{'Odd':<{w}} ⚠️ failed"
+    assert "GBP" not in "\n".join(lines) and "Lowest" not in "\n".join(lines)
+
+
+def test_discord_summary_no_emoji_without_history_or_on_equal_price():
+    rows = [("First run", Result(2000.0, "EUR", True, price_eur=2000.0), None),
+            ("Same low", Result(2099.0, "EUR", True, price_eur=2099.0), 2099.0)]
+    assert "🤑" not in pt.discord_summary(rows)
+
+
+def test_new_low_judged_in_shop_currency_not_eur():
+    # same PLN price, EUR value moved with the exchange rate: not a new low
+    rows = [("PLN shop", Result(9999.0, "PLN", True, price_eur=2200.0), 9999.0)]
+    assert "🤑" not in pt.discord_summary(rows)
 
 
 class FakeResponse:
@@ -230,6 +267,22 @@ def test_notify_posts_to_discord(monkeypatch):
     assert kw["json"]["content"].startswith("**RASA 8 price alert**")
     assert "2,700.00 EUR" in kw["json"]["content"]
     assert kw["json"]["flags"] == 4
+
+
+def test_notify_sends_discord_its_own_text(monkeypatch):
+    for var in ("TELEGRAM_BOT_TOKEN", "SMTP_HOST"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.example/webhook")
+    monkeypatch.setenv("NTFY_TOPIC", "rasa8-test")
+    calls = []
+    monkeypatch.setattr(pt.requests, "post",
+                        lambda url, **kw: calls.append((url, kw)) or FakeResponse())
+
+    pt.notify("full table", discord_text="narrow table")
+
+    sent = {url: kw for url, kw in calls}
+    assert "narrow table" in sent["https://discord.example/webhook"]["json"]["content"]
+    assert sent["https://ntfy.sh/rasa8-test"]["data"] == b"full table"
 
 
 def test_notify_dry_run_sends_nothing(monkeypatch):

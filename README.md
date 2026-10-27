@@ -23,7 +23,8 @@ lists candidate price elements; add `selector = "..."` to that shop in shops.tom
 | Email    | `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_TO`, optional `EMAIL_FROM` |
 
 Test with `python price_tracker.py --test-notify`. Add `--summary` to any run to
-also send a price table for every shop (the GitHub Actions morning run does this).
+also send a price table for every shop (both GitHub Actions runs do this; Discord
+gets a narrower version: EUR price, 🤑 on a new all-time low, stock icon).
 
 ## Testing
     pip install -r requirements-dev.txt
@@ -42,7 +43,7 @@ Put the notification variables in the crontab or a wrapper script.
 **GitHub Actions**: push this folder to a repo, add the variables as repository
 secrets (Settings → Secrets and variables → Actions, or
 `gh secret set DISCORD_WEBHOOK_URL`), and `.github/workflows/price-check.yml` runs
-at 05:23 UTC (alerts + summary) and 17:23 UTC (alerts only) and commits
+at 05:23 and 17:23 UTC (alerts + price summary each time) and commits
 `prices.db` back. Use Actions → RASA 8 price check → Run workflow to start a run
 by hand, with optional dry-run and summary switches. Note that runners use US IP addresses, so some shops
 may show other currencies or block the request; running from home sees the

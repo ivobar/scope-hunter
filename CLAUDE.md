@@ -23,7 +23,8 @@ that context over.
   JSON-LD/meta, no selectors needed. Astroshop.eu is disabled in shops.toml
   (Cloudflare bot challenge, HTTP 403). Rother Valley URL confirmed as plain OTA.
 - Notifications: Discord webhook (`DISCORD_WEBHOOK_URL`) chosen; GitHub Actions
-  runs at 05:23 UTC with `--summary` (price table) and 17:23 UTC alerts only
+  runs at 05:23 and 17:23 UTC, both with `--summary` (Discord gets the narrow
+  `discord_summary` table: EUR price, 🤑 new all-time low, stock icon)
   (off the hour: top-of-hour schedules got delayed by 5+ hours).
 
 ## Next steps

@@ -338,19 +338,46 @@ def evaluate(name, url, res: Result, prev, prev_low, settings) -> list[str]:
     return msgs
 
 
-def summary_table(rows: list[tuple[str, Result, float | None]]) -> str:
-    """Price table for (shop name, result, lowest seen) rows, cheapest in EUR first."""
-    rows = sorted(rows, key=lambda r: (r[1].price_eur is None, r[1].price_eur or 0))
+Row = tuple[str, Result, float | None]  # shop name, this run's result, lowest price before this run
+
+
+def _by_eur(rows: list[Row]) -> list[Row]:
+    return sorted(rows, key=lambda r: (r[1].price_eur is None, r[1].price_eur or 0))
+
+
+def summary_table(rows: list[Row]) -> str:
+    """Full price table (console, Telegram, ntfy, email), cheapest in EUR first."""
     lines = [f"{'Shop':<22} {'Latest':>14} {'≈ EUR':>7} {'Lowest':>14}  Stock"]
-    for name, res, low in rows:
+    for name, res, prev_low in _by_eur(rows):
         if res.price is None:
             lines.append(f"{name:<22} FAILED: {(res.error or '?')[:60]}")
             continue
+        low = min(p for p in (prev_low, res.price) if p is not None)
         stock = {True: "yes", False: "no", None: "?"}[res.in_stock]
         eur = f"€{res.price_eur:,.0f}" if res.price_eur is not None else "—"
         lines.append(f"{name:<22} {fmt(res.price, res.currency):>14} {eur:>7} "
                      f"{fmt(low, res.currency):>14}  {stock}")
-    return "📋 Daily summary\n```\n" + "\n".join(lines) + "\n```"
+    return "📋 Price summary\n```\n" + "\n".join(lines) + "\n```"
+
+
+def discord_summary(rows: list[Row]) -> str:
+    """Narrow table for Discord on a phone: EUR price, 🤑 on a new all-time low, stock icon.
+
+    The low is judged in the shop's own currency, so exchange-rate moves don't
+    trigger it, and only when the price beats every earlier one (not on the first run).
+    """
+    width = max(len(name) for name, _, _ in rows)
+    lines = []
+    for name, res, prev_low in _by_eur(rows):
+        if res.price is None:
+            code = re.match(r"\d{3}\b", res.error or "")
+            lines.append(f"{name:<{width}} ⚠️ {'HTTP ' + code[0] if code else 'failed'}")
+            continue
+        eur = f"€{res.price_eur:,.0f}" if res.price_eur is not None else "—"
+        low = "🤑" if prev_low is not None and res.price < prev_low else "  "
+        stock = {True: "✅", False: "❌", None: "❔"}[res.in_stock]
+        lines.append(f"{name:<{width}} {eur:>6} {low} {stock}")
+    return "📋 Prices\n```\n" + "\n".join(lines) + "\n```"
 
 
 # --------------------------------------------------------------------------- notifications
@@ -375,8 +402,11 @@ def _chunks(text: str, limit: int = 1900) -> list[str]:
     return out
 
 
-def notify(text: str, dry_run: bool = False) -> None:
+def notify(text: str, dry_run: bool = False, discord_text: str | None = None) -> None:
+    """Send text to every configured channel; Discord gets discord_text when given."""
     print("\n" + "=" * 60 + "\n" + text + "\n" + "=" * 60)
+    if discord_text and discord_text != text:
+        print("Discord version:\n" + discord_text + "\n" + "=" * 60)
     if dry_run:
         return
     title = "RASA 8 price alert"
@@ -394,7 +424,7 @@ def notify(text: str, dry_run: bool = False) -> None:
     webhook = os.getenv("DISCORD_WEBHOOK_URL")
     if webhook:
         try:
-            for part in _chunks(f"**{title}**\n\n{text}"):
+            for part in _chunks(f"**{title}**\n\n{discord_text or text}"):
                 requests.post(webhook, json={"content": part, "username": "RASA 8 tracker",
                                              "flags": 4},  # 4 = no link previews
                               timeout=20).raise_for_status()
@@ -433,7 +463,7 @@ def notify(text: str, dry_run: bool = False) -> None:
 def run(conn, session, settings, shops, dry_run, summary=False):
     rates = ecb_rates(session)
     alerts: list[str] = []
-    rows: list[tuple[str, Result, float | None]] = []
+    rows: list[Row] = []
     for i, shop in enumerate(shops):
         if i:
             time.sleep(random.uniform(2, 5))  # be polite
@@ -456,8 +486,7 @@ def run(conn, session, settings, shops, dry_run, summary=False):
 
         prev, prev_low = last_ok(conn, name), lowest(conn, name)
         alerts += evaluate(name, url, res, prev, prev_low, settings)
-        lows = [p for p in (prev_low, res.price) if p is not None]
-        rows.append((name, res, min(lows) if lows else None))
+        rows.append((name, res, prev_low))
 
         if not dry_run:
             save(conn, name, url, res)
@@ -466,10 +495,12 @@ def run(conn, session, settings, shops, dry_run, summary=False):
                               f"The page may have changed; try --debug.\n{url}")
     if not alerts:
         log.info("\nNo alerts this run.")
+    discord_alerts = list(alerts)
     if summary:
         alerts.append(summary_table(rows))
+        discord_alerts.append(discord_summary(rows))
     if alerts:
-        notify("\n\n".join(alerts), dry_run)
+        notify("\n\n".join(alerts), dry_run, "\n\n".join(discord_alerts))
 
 
 def report(conn):
