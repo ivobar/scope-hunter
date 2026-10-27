@@ -42,7 +42,7 @@ Put the notification variables in the crontab or a wrapper script.
 **GitHub Actions**: push this folder to a repo, add the variables as repository
 secrets (Settings → Secrets and variables → Actions, or
 `gh secret set DISCORD_WEBHOOK_URL`), and `.github/workflows/price-check.yml` runs
-at 06:00 UTC (alerts + summary) and 18:00 UTC (alerts only) and commits
+at 05:23 UTC (alerts + summary) and 17:23 UTC (alerts only) and commits
 `prices.db` back. Use Actions → RASA 8 price check → Run workflow to start a run
 by hand, with optional dry-run and summary switches. Note that runners use US IP addresses, so some shops
 may show other currencies or block the request; running from home sees the

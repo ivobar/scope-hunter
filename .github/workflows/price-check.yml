@@ -2,8 +2,8 @@ name: RASA 8 price check
 
 on:
   schedule:
-    - cron: "0 6 * * *"      # morning run: alerts + daily summary (UTC)
-    - cron: "0 18 * * *"     # evening run: alerts only
+    - cron: "23 5 * * *"     # morning run: alerts + daily summary (UTC; off the hour, fewer delays)
+    - cron: "23 17 * * *"    # evening run: alerts only
   workflow_dispatch:          # "Run workflow" button for manual runs
     inputs:
       dry_run:
@@ -34,7 +34,7 @@ jobs:
         run: |
           args=()
           if [ "${{ inputs.dry_run }}" = "true" ]; then args+=(--dry-run); fi
-          if [ "${{ inputs.summary }}" = "true" ] || [ "${{ github.event.schedule }}" = "0 6 * * *" ]; then
+          if [ "${{ inputs.summary }}" = "true" ] || [ "${{ github.event.schedule }}" = "23 5 * * *" ]; then
             args+=(--summary)
           fi
           python price_tracker.py "${args[@]}"
