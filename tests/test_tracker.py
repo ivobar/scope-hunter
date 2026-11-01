@@ -196,9 +196,9 @@ def test_chunks_hard_splits_oversized_block():
 
 def test_summary_table():
     rows = [
-        ("Expensive", Result(2600.0, "GBP", True, price_eur=3050.0), 2500.0),
-        ("Cheap", Result(2700.0, "EUR", None, price_eur=2700.0), 2650.0),
-        ("Broken", Result(error="HTTP 403 Forbidden"), None),
+        ("Expensive", URL, Result(2600.0, "GBP", True, price_eur=3050.0), 2500.0),
+        ("Cheap", URL, Result(2700.0, "EUR", None, price_eur=2700.0), 2650.0),
+        ("Broken", URL, Result(error="HTTP 403 Forbidden"), None),
     ]
     text = pt.summary_table(rows)
     lines = text.splitlines()
@@ -210,39 +210,39 @@ def test_summary_table():
 
 
 def test_summary_table_lowest_includes_current_price():
-    text = pt.summary_table([("Shop", Result(2500.0, "EUR", True, price_eur=2500.0), 2600.0)])
+    text = pt.summary_table([("Shop", URL, Result(2500.0, "EUR", True, price_eur=2500.0), 2600.0)])
     assert "2,500.00 EUR" in text.splitlines()[3].split("€2,500")[1]
 
 
 def test_discord_summary():
     rows = [
-        ("Teleskop-Express", Result(2449.0, "EUR", None, price_eur=2449.0), 2449.0),
-        ("Astrofy", Result(2050.0, "EUR", True, price_eur=2050.0), 2099.0),     # new low
-        ("Harrison", Result(2599.0, "GBP", False, price_eur=3101.0), 2599.0),
-        ("Skypoint", Result(error="403 Client Error: Forbidden for url: https://x"), 2099.0),
-        ("Odd", Result(error="no price found on page"), None),
+        ("Teleskop-Express", URL, Result(2449.0, "EUR", None, price_eur=2449.0), 2449.0),
+        ("Astrofy", URL, Result(2050.0, "EUR", True, price_eur=2050.0), 2099.0),     # new low
+        ("Harrison", URL, Result(2599.0, "GBP", False, price_eur=3101.0), 2599.0),
+        ("Skypoint", URL, Result(error="403 Client Error: Forbidden for url: https://x"), 2099.0),
+        ("Odd", URL, Result(error="no price found on page"), None),
     ]
     lines = pt.discord_summary(rows).splitlines()
-    assert lines[0] == "📋 Prices" and lines[1] == "```" and lines[-1] == "```"
-    body = lines[2:-1]
-    w = len("Teleskop-Express")  # names are padded to the longest one
-    assert body[0] == f"{'Astrofy':<{w}} €2,050 🤑 ✅"
-    assert body[1] == f"{'Teleskop-Express':<{w}} €2,449    ❔"
-    assert body[2] == f"{'Harrison':<{w}} €3,101    ❌"
-    assert body[3] == f"{'Skypoint':<{w}} ⚠️ HTTP 403"
-    assert body[4] == f"{'Odd':<{w}} ⚠️ failed"
+    assert lines[0] == "📋 Prices" and "```" not in "\n".join(lines)  # links need no code block
+    body = lines[1:]
+    link = f"(<{URL}>)"
+    assert body[0] == f"`€2,050` ✅ [Astrofy]{link} 🤑"
+    assert body[1] == f"`€2,449` ❔ [Teleskop-Express]{link}"
+    assert body[2] == f"`€3,101` ❌ [Harrison]{link}"
+    assert body[3] == f"`     —` ⚠️ [Skypoint]{link} HTTP 403"
+    assert body[4] == f"`     —` ⚠️ [Odd]{link} failed"
     assert "GBP" not in "\n".join(lines) and "Lowest" not in "\n".join(lines)
 
 
 def test_discord_summary_no_emoji_without_history_or_on_equal_price():
-    rows = [("First run", Result(2000.0, "EUR", True, price_eur=2000.0), None),
-            ("Same low", Result(2099.0, "EUR", True, price_eur=2099.0), 2099.0)]
+    rows = [("First run", URL, Result(2000.0, "EUR", True, price_eur=2000.0), None),
+            ("Same low", URL, Result(2099.0, "EUR", True, price_eur=2099.0), 2099.0)]
     assert "🤑" not in pt.discord_summary(rows)
 
 
 def test_new_low_judged_in_shop_currency_not_eur():
     # same PLN price, EUR value moved with the exchange rate: not a new low
-    rows = [("PLN shop", Result(9999.0, "PLN", True, price_eur=2200.0), 9999.0)]
+    rows = [("PLN shop", URL, Result(9999.0, "PLN", True, price_eur=2200.0), 9999.0)]
     assert "🤑" not in pt.discord_summary(rows)
 
 

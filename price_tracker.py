@@ -338,17 +338,17 @@ def evaluate(name, url, res: Result, prev, prev_low, settings) -> list[str]:
     return msgs
 
 
-Row = tuple[str, Result, float | None]  # shop name, this run's result, lowest price before this run
+Row = tuple[str, str, Result, float | None]  # shop name, url, this run's result, lowest price before this run
 
 
 def _by_eur(rows: list[Row]) -> list[Row]:
-    return sorted(rows, key=lambda r: (r[1].price_eur is None, r[1].price_eur or 0))
+    return sorted(rows, key=lambda r: (r[2].price_eur is None, r[2].price_eur or 0))
 
 
 def summary_table(rows: list[Row]) -> str:
     """Full price table (console, Telegram, ntfy, email), cheapest in EUR first."""
     lines = [f"{'Shop':<22} {'Latest':>14} {'≈ EUR':>7} {'Lowest':>14}  Stock"]
-    for name, res, prev_low in _by_eur(rows):
+    for name, _, res, prev_low in _by_eur(rows):
         if res.price is None:
             lines.append(f"{name:<22} FAILED: {(res.error or '?')[:60]}")
             continue
@@ -361,23 +361,26 @@ def summary_table(rows: list[Row]) -> str:
 
 
 def discord_summary(rows: list[Row]) -> str:
-    """Narrow table for Discord on a phone: EUR price, 🤑 on a new all-time low, stock icon.
+    """Narrow list for Discord on a phone: EUR price, stock icon, shop name linked to
+    its page, 🤑 on a new all-time low.
 
-    The low is judged in the shop's own currency, so exchange-rate moves don't
-    trigger it, and only when the price beats every earlier one (not on the first run).
+    Links don't work inside a code block, so only the price is inline code; its fixed
+    width keeps the names lined up. The low is judged in the shop's own currency, so
+    exchange-rate moves don't trigger it, and only when the price beats every earlier
+    one (not on the first run).
     """
-    width = max(len(name) for name, _, _ in rows)
     lines = []
-    for name, res, prev_low in _by_eur(rows):
+    for name, url, res, prev_low in _by_eur(rows):
+        link = f"[{name}](<{url}>)"  # <> keeps Discord from previewing the page
         if res.price is None:
             code = re.match(r"\d{3}\b", res.error or "")
-            lines.append(f"{name:<{width}} ⚠️ {'HTTP ' + code[0] if code else 'failed'}")
+            lines.append(f"`{'—':>6}` ⚠️ {link} {'HTTP ' + code[0] if code else 'failed'}")
             continue
         eur = f"€{res.price_eur:,.0f}" if res.price_eur is not None else "—"
-        low = "🤑" if prev_low is not None and res.price < prev_low else "  "
         stock = {True: "✅", False: "❌", None: "❔"}[res.in_stock]
-        lines.append(f"{name:<{width}} {eur:>6} {low} {stock}")
-    return "📋 Prices\n```\n" + "\n".join(lines) + "\n```"
+        low = " 🤑" if prev_low is not None and res.price < prev_low else ""
+        lines.append(f"`{eur:>6}` {stock} {link}{low}")
+    return "📋 Prices\n" + "\n".join(lines)
 
 
 # --------------------------------------------------------------------------- notifications
@@ -486,7 +489,7 @@ def run(conn, session, settings, shops, dry_run, summary=False):
 
         prev, prev_low = last_ok(conn, name), lowest(conn, name)
         alerts += evaluate(name, url, res, prev, prev_low, settings)
-        rows.append((name, res, prev_low))
+        rows.append((name, url, res, prev_low))
 
         if not dry_run:
             save(conn, name, url, res)
